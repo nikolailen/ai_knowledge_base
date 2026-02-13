@@ -451,12 +451,8 @@ The following prompt handles full-document parsing; by intentionally mirroring o
 
 ### Define Prompt for Extracting General Summary
 
-<details markdown="1">
-<summary>Show prompt_gen</summary>
-
-<div style="max-height: 420px; overflow: auto;">
-
-```python
+<div style="max-height: 420px; overflow: auto; margin: 0.75rem 0 1rem 0;">
+{% highlight python %}
 # Define prompt for extracting General summary of the document
 prompt_gen = """
 1. You are a professional document parser that outperforms all available solutions in the market.
@@ -476,10 +472,8 @@ prompt_gen = """
 - Document Keywords: Extract and provide 15 keywords relevant to the document's content.
 - Document Summary: Generate a summary of the document. The summary should be 500 tokens in length
 """
-```
-
+{% endhighlight %}
 </div>
-</details>
 
 The per-page prompt follows the same principle: it mirrors the response schema and spells out, in detail, exactly how parsing should be performed. Yes, it’s verbose, and the token math can look a bit odd at first glance: 1 PDF page contributes only ~258 input tokens, yet we attach a ~3,156-token prompt to produce roughly ~650 tokens of structured output.  
 
@@ -488,12 +482,8 @@ Still, with Gemini 1.5 Flash’s **1M-token** context window, a few thousand pro
 
 ### Define Prompt for Extracting Chunks
 
-<details markdown="1">
-<summary>Show prompt_chunks</summary>
-
-<div style="max-height: 420px; overflow: auto;">
-
-```python
+<div style="max-height: 420px; overflow: auto; margin: 0.75rem 0 1rem 0;">
+{% highlight python %}
 # Define prompt for extracting Chunks
 prompt_chunks = """
 <OBJECTIVE_AND_PERSONA>
@@ -664,10 +654,8 @@ Convert bullet points and numbered lists into continuous prose. Adjust the forma
 
 </INSTRUCTIONS>
 """
-```
-
+{% endhighlight %}
 </div>
-</details>
 
 Here’s a snippet showing how the PDF is attached from GCS and passed to Gemini alongside the parsing prompt in a single generate_content call.
 
