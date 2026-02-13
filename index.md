@@ -181,7 +181,7 @@ rows = list(bq_client.query(query))
 existing_file_ids = {row["file_id"] for row in rows}
 new_files = [f for f in master_files if f["file_id"] not in existing_file_ids]
 ```
-Source files: `01_setup_bq_file_list.ipynb (cell 2 lines 20-35; cell 4 lines 21-24)`, `03_parsing_tool.ipynb (cell 10 lines 8-21)`
+Source files: [01_setup_bq_file_list.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/01_setup_bq_file_list.ipynb) (cell 2 lines 20-35; cell 4 lines 21-24), [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 10 lines 8-21)
 
 ## 2) Drive Access and Resilient Discovery
 
@@ -197,7 +197,7 @@ credentials = service_account.Credentials.from_service_account_info(
 )
 drive_service = build("drive", "v3", credentials=credentials)
 ```
-Source files: `03_parsing_tool.ipynb (cell 8 lines 1-33)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 8 lines 1-33)
 
 Discovery calls use exponential backoff for transient API failures.
 
@@ -217,7 +217,7 @@ def robust_files_list(service, query, max_retries=5, initial_wait=1):
             else:
                 raise
 ```
-Source files: `03_parsing_tool.ipynb (cell 8 lines 34-63)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 8 lines 34-63)
 
 
 ## 3) Copy/Convert Stage: Normalize to PDF
@@ -244,7 +244,7 @@ elif file["file_mime_type"] in OFFICE_TYPES:
 else:
     request = drive_service.files().get_media(fileId=file_id, supportsAllDrives=True)
 ```
-Source files: `03_parsing_tool.ipynb (cell 12 lines 90-177)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 12 lines 90-177)
 
 Parallel workers use thread-local Drive clients to avoid shared mutable client state.
 
@@ -257,7 +257,7 @@ def get_drive_service():
         thread_local.drive_service = build("drive", "v3", credentials=credentials)
     return thread_local.drive_service
 ```
-Source files: `03_parsing_tool.ipynb (cell 12 lines 53-60)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 12 lines 53-60)
 
 ## 4) Parallelism Model: Copy + Page-Aware Batches
 
@@ -273,7 +273,7 @@ with ThreadPoolExecutor(max_workers=num_threads) as executor:
         if future.result():
             total_copied += 1
 ```
-Source files: `03_parsing_tool.ipynb (cell 12 lines 252-260)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 12 lines 252-260)
 
 Parsing concurrency is shaped by page counts under an explicit `API_LIMIT`.
 
@@ -292,7 +292,7 @@ for file_number, num_pages in file_page_counts:
 if current_batch:
     batches.append(current_batch)
 ```
-Source files: `03_parsing_tool.ipynb (cell 35 lines 61-187)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 35 lines 61-187)
 
 Inside each file, the whole-document task and all page tasks are also executed in parallel.
 
@@ -312,7 +312,7 @@ with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
         else:
             all_chunks.extend(future.result() or [])
 ```
-Source files: `03_parsing_tool.ipynb (cell 33 lines 233-256)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 33 lines 233-256)
 
 ## 5) Parsing Logic by Derivation Source
 
@@ -424,7 +424,7 @@ response_schema_chunks = {
     },
 }
 ```
-Source files: `03_parsing_tool.ipynb (cell 19 lines 1-36)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 19 lines 1-36)
 
 Generation config binds the response format to that schema.
 This is Vertex AI SDK (`vertexai.generative_models.GenerationConfig`) controlling JSON-structured generation.
@@ -440,7 +440,7 @@ config_chunks = GenerationConfig(
 )
 response = model_chunks.generate_content(contents, generation_config=config_chunks)
 ```
-Source files: `03_parsing_tool.ipynb (cell 22 lines 1-11)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 22 lines 1-11)
 
 
 ## 7) Direct URI Multimodal Calls + Telemetry
@@ -449,6 +449,14 @@ PDFs are ingested via GCS URIs and sent directly to Gemini 1.5 Flash along with 
 
 The following prompt handles full-document parsing; by intentionally mirroring our target response schema, we eliminate potential data conflicts.
 
+### Define Prompt for Extracting General Summary
+
+<details markdown="1">
+<summary>Show prompt_gen</summary>
+
+<div style="max-height: 420px; overflow: auto;">
+
+```python
 # Define prompt for extracting General summary of the document
 prompt_gen = """
 1. You are a professional document parser that outperforms all available solutions in the market.
@@ -468,11 +476,24 @@ prompt_gen = """
 - Document Keywords: Extract and provide 15 keywords relevant to the document's content.
 - Document Summary: Generate a summary of the document. The summary should be 500 tokens in length
 """
+```
+
+</div>
+</details>
 
 The per-page prompt follows the same principle: it mirrors the response schema and spells out, in detail, exactly how parsing should be performed. Yes, it’s verbose, and the token math can look a bit odd at first glance: 1 PDF page contributes only ~258 input tokens, yet we attach a ~3,156-token prompt to produce roughly ~650 tokens of structured output.  
 
 Still, with Gemini 1.5 Flash’s **1M-token** context window, a few thousand prompt tokens are negligible. Could this be optimized? Absolutely. But for this project, it proved both reliable and cost-effective.
 
+
+### Define Prompt for Extracting Chunks
+
+<details markdown="1">
+<summary>Show prompt_chunks</summary>
+
+<div style="max-height: 420px; overflow: auto;">
+
+```python
 # Define prompt for extracting Chunks
 prompt_chunks = """
 <OBJECTIVE_AND_PERSONA>
@@ -643,6 +664,10 @@ Convert bullet points and numbered lists into continuous prose. Adjust the forma
 
 </INSTRUCTIONS>
 """
+```
+
+</div>
+</details>
 
 Here’s a snippet showing how the PDF is attached from GCS and passed to Gemini alongside the parsing prompt in a single generate_content call.
 
@@ -655,7 +680,7 @@ pdf_file_part = Part.from_uri(uri=gs_uri, mime_type="application/pdf")
 contents = [pdf_file_part, prompt_gen]
 response = model.generate_content(contents, generation_config=config_gen)
 ```
-Source files: `03_parsing_tool.ipynb (cell 25 lines 16-25)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 25 lines 16-25)
 
 Telemetry fields are captured from Gemini response metadata for monitoring and reproducibility.
 Document-level and page-level passes use the same pattern with different field prefixes.
@@ -673,9 +698,9 @@ document_fields = {
 # In page-level flow, analogous fields are captured under chunks keys
 # (for example: aj/al/an/ap/ar)
 ```
-Source files: `03_parsing_tool.ipynb (cell 25 lines 42-51; cell 27 lines 52-57)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 25 lines 42-51; cell 27 lines 52-57)
 
-## 7) Merge, Determinism, NDJSON, and Load
+## 8) Merge, Determinism, NDJSON, and Load
 
 The merge combines three layers into one final row schema.
 Key libraries: `collections.OrderedDict`, `json`, `google-cloud-bigquery`
@@ -697,7 +722,7 @@ chunk_result.update({
 })
 all_chunks.append(chunk_result)
 ```
-Source files: `03_parsing_tool.ipynb (cell 27 lines 30-63)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 27 lines 30-63)
 
 Programmatic prep layer is built in `process_file` and stored under `metadata["properties"]` (`_prep.json`).
 
@@ -714,7 +739,7 @@ metadata = {
     },
 }
 ```
-Source files: `03_parsing_tool.ipynb (cell 33 lines 169-183)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 33 lines 169-183)
 
 Document LLM layer is built in `process_pdf_gen` (`_gen.json`).
 
@@ -731,7 +756,7 @@ gen_result.update({
     "aq_document_model_version": response._raw_response.model_version,
 })
 ```
-Source files: `03_parsing_tool.ipynb (cell 25 lines 31-51)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 25 lines 31-51)
 
 Layer provenance:
 
@@ -755,7 +780,7 @@ for chunk in all_chunks:
 sorted_chunks = sorted(sorted_chunks, key=lambda x: int(x.get("b_page_number", 0)))
 merged_json = json.dumps(sorted_chunks, indent=2)
 ```
-Source files: `03_parsing_tool.ipynb (cell 33 lines 297-323)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 33 lines 297-323)
 
 Merged JSON is converted to NDJSON and appended to BigQuery `CHUNKS`.
 
@@ -771,9 +796,9 @@ job_config = bigquery.LoadJobConfig(
 )
 client.load_table_from_uri(f"gs://{bucket_name}/{gcs_uri}", table_id, job_config=job_config).result()
 ```
-Source files: `03_parsing_tool.ipynb (cell 29 lines 1-6; cell 31 lines 9-20)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 29 lines 1-6; cell 31 lines 9-20)
 
-## 8) Incremental Corpus Update (`CORPUS`)
+## 9) Incremental Corpus Update (`CORPUS`)
 
 We initialize LangChain’s BigQueryVectorStore, which is a great “serverless default” for semantic retrieval: simple ops, easy scaling, and good performance at moderate scale.
 
@@ -795,7 +820,7 @@ bq_store = BigQueryVectorStore(
     distance_type="EUCLIDEAN",
 )
 ```
-Source files: `03_parsing_tool.ipynb (cell 43 lines 1-3; cell 44 lines 1-8)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 43 lines 1-3; cell 44 lines 1-8)
 
 If you later need consistently low, user-facing latency, LangChain lets you switch to Vertex AI Feature Store Online Store via VertexFSVectorStore with minimal code changes. In practice, BigQuery vector search is commonly in the hundreds of milliseconds to seconds range (≈ 0.3–3.0 s), while Feature Store is built for millisecond online serving (Google reports ~2 ms at the 99th percentile in internal benchmarks). The trade-off is cost: Feature Store provisions always-on online serving capacity, so it’s typically more expensiv, but it’s a clean upgrade path when traffic or dataset size grows.
 
@@ -838,7 +863,7 @@ AND (
   OR (e_chunk_type IN ('table', 'chart', 'diagram', 'image'))
 )
 ```
-Source files: `03_parsing_tool.ipynb (cell 47 lines 31-42)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 47 lines 31-42)
 
 Rows are loaded through `BigQueryLoader`, cleaned, then embedded and inserted.
 `BigQueryLoader` and `BigQueryVectorStore` here are LangChain integrations from `langchain_google_community`.
@@ -852,7 +877,7 @@ for doc in docs:
 if docs:
     doc_ids = bq_store.add_documents(docs)
 ```
-Source files: `03_parsing_tool.ipynb (cell 51 lines 1-31; cell 53 lines 1-7; cell 55 lines 1-5)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 51 lines 1-31; cell 53 lines 1-7; cell 55 lines 1-5)
 
 `FILE_LIST` status is synchronized via temporary table and SQL `MERGE`.
 
@@ -865,9 +890,9 @@ WHEN MATCHED THEN
     T.parsed = S.parsed,
     T.timestamp_parsed = S.timestamp_parsed
 ```
-Source files: `03_parsing_tool.ipynb (cell 35 lines 220-253)`
+Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 35 lines 220-253)
 
-## 9) App Runtime and Deployment
+## 10) App Runtime and Deployment
 
 Runtime logic routes by mode, retrieves chunks, optionally attaches source PDFs, then invokes the model.
 
@@ -905,7 +930,7 @@ if context_mode != "no_context":
             messages.append(HumanMessage(content=f"Context Chunk:\n{doc.page_content}"))
 response = llm.invoke(messages)
 ```
-Source files: `05_app_gradio.py:72`, `05_app_gradio.py:82`, `05_app_gradio.py:96`, `05_app_gradio.py:135`, `05_app_gradio.py:189`
+Source files: [05_app_gradio.py:72](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L72), [05_app_gradio.py:82](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L82), [05_app_gradio.py:96](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L96), [05_app_gradio.py:135](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L135), [05_app_gradio.py:189](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L189)
 
 Deployment keeps a minimal runtime image for Cloud Run.
 Key libraries (deployment): Docker, Cloud Run
@@ -920,7 +945,7 @@ RUN pip install --no-cache-dir \
     "langchain-google-community[featurestore,bigquery]" gradio
 CMD ["python", "05_app_gradio.py"]
 ```
-Source files: `06_Dockerfile:1`
+Source files: [06_Dockerfile:1](https://github.com/nikolailen/ai_knowledge_base/blob/main/06_Dockerfile#L1)
 
 
 ### Parsing outcome and chunk size distribution
