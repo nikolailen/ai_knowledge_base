@@ -1,6 +1,7 @@
 ﻿---
 title: "I Parsed 10,000 Complex Technical Docs for €50: A Multimodal RAG Survival Guide"
 description: "How I built a practically free, serverless knowledge base on GCP using Gemini 1.5 Flash, BigQuery, Langchain and Cloud Run"
+canonical_url: "https://medium.com/@nikolailen/i-parsed-10-000-complex-technical-docs-for-50-a-multimodal-rag-survival-guide-22430a942252"
 ---
 
 # I Parsed 10,000 Complex Technical Docs for €50: A Multimodal RAG Survival Guide
