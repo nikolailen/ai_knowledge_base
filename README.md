@@ -1,4 +1,6 @@
-# AI Knowledge Base on GCP: Multimodal Parsing with Gemini and RAG via BigQuery + LangChain
+﻿# AI Knowledge Base on GCP: Multimodal Parsing with Gemini and RAG via BigQuery + LangChain
+
+[🌐 Project page](https://nikolailen.github.io/ai_knowledge_base/)
 
 ## Project Context
 
@@ -256,3 +258,4 @@ Because models improve over time, `pdf` / `pdf+text` allows the system to levera
 ## License
 
 This project is licensed under the MIT License. See `LICENSE` for details.
+
