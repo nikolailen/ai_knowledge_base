@@ -1,4 +1,4 @@
----
+﻿---
 title: "I Parsed 10,000 Complex Technical Docs for €50: A Multimodal RAG Survival Guide"
 description: "How I built a practically free, serverless knowledge base on GCP using Gemini 1.5 Flash, BigQuery, Langchain and Cloud Run"
 ---
@@ -10,10 +10,10 @@ description: "How I built a practically free, serverless knowledge base on GCP u
 ![Cover image]({{ '/images/1-cover.jpeg' | relative_url }})
 
 ## The Backstory
-_While I'm writing this in early 2026, this project actually dates back to late 2024 and early 2025. Consequently, the architecture was shaped by the specific tools available during that window. I had to innovate under **strict constraints**: the entire pipeline needed to run on **GCP**, adhere to **data-sovereignty requirements**, and stick to a **tight budget**. Back then, I didn't have the luxury of today's parsing solutions like Google LangExtract or Mistral's Document AI. Even Google's native RAG Engine wasn't available in European regions yet. I realize the landscape has shifted dramatically; for those deploying cutting-edge agentic RAG systems in 2026, the tech stack might look a bit retro. However, this article is less about the specific tools and more about the **architectural decision-making process**. If you are interested in how to navigate constraints or need to build an AI-powered proprietary document library with **minimal processing and maintenance costs**, this is still very much worth reading._
+_While I'm writing this in early 2026, this project actually dates back to late 2024 and early 2025. Consequently, the architecture was shaped by the specific tools available during that window. I had to innovate under strict constraints: the entire pipeline needed to run on **GCP**, adhere to data-sovereignty requirements, and stick to a tight budget. Back then, I didn't have the luxury of today's parsing solutions like **Google LangExtract** or **Mistral's Document AI**. Even Google's native **RAG Engine** wasn't available in European regions yet. I realize the landscape has shifted dramatically; for those deploying cutting-edge agentic RAG systems in 2026, the tech stack might look a bit retro. However, this article is less about the specific tools and more about the **architectural decision-making process**. If you are interested in how to navigate constraints or need to build an AI-powered proprietary document library with **minimal processing and maintenance costs**, this is still very much worth reading._
 
 ## The Problem: 10,000 Unstructured Documents
-In 2024, I was approached by the marketing team of a leading industrial manufacturer. They were sitting on a ***treasure trove of unique data***: specialized industry articles, technical journals, and presentations buried in a chaotic labyrinth of Google Drive folders containing ***roughly 10,000 documents***. The corpus was ***multimodal***, consisting of primarily PDFs, but also Word documents, PPTs, and Excel files, all dense with text, tables, charts, and diagrams. Besides that, a considerable portion of the presentations consisted of slide images (photos) without OCR, making the text non-searchable and harder to extract. The ingestion pipeline was ***immutable***: subject-matter experts (non-technical users) manually uploaded files monthly, and this workflow could not be altered. The good news was that along with Drive, I was provisioned a GCP environment. The catch was that I couldn't step outside it. I was ***restricted strictly to native services***: no external APIs and no new vendors. Finally, I had to make it all work on a ***shoestring budget***.
+In 2024, I was approached by the marketing team of a leading industrial manufacturer. They were sitting on a treasure trove of unique data: specialized industry articles, technical journals, and presentations buried in a chaotic labyrinth of Google Drive folders containing **roughly 10,000 documents**. The corpus was **multimodal**, consisting of primarily PDFs, but also Word documents, PPTs, and Excel files, all dense with text, tables, charts, and diagrams. Besides that, a considerable portion of the presentations consisted of slide **images (photos) without OCR**, making the text non-searchable and harder to extract. The ingestion pipeline was immutable: subject-matter experts (non-technical users) manually uploaded files monthly, and this workflow could not be altered. The good news was that along with Drive, I was provisioned a **GCP environment**. The catch was that I couldn't step outside it. I was restricted strictly to native services: no external APIs and no new vendors. Finally, I had to make it all work on a shoestring budget.
 
 ## Deliverables
 
@@ -26,13 +26,11 @@ In 2024, I was approached by the marketing team of a leading industrial manufact
 * **Automatic re-ingestion for higher accuracy:** When a relevant document is retrieved, the system can optionally re-ingest it on demand using newer Gemini models integrated into the chatbot to parse it in real time and compensate for any imperfections from batch processing.
 * **Scalability as usage grows:** Designed to scale smoothly as adoption increases and the corpus expands, keeping ingestion, retrieval, and response quality performant as the database grows.
 
-**The Result:** I built a fully automated pipeline that parsed everything for **€50 total**. Maintenance costs? Practically zero, thanks to the GCP Free Tier.
+**The Result:** I built a fully automated pipeline that parsed everything for **~€50 total**. Maintenance costs? Practically zero, thanks to the GCP Free Tier.
 
 Here is the breakdown of how I did it.
 
-## Parsing tool
-
-### How I Arrived at a Custom Parsing Solution
+## How I Arrived at a Custom Parsing Solution
 
 Traditional RAG tutorials usually rely on splitting documents into fixed-size, overlapping chunks. While this might work for simple continuous text, it is imperfect even for works like War and Peace, where Tolstoy’s shifts between Russian and French result in disjointed, mixed-language chunks. But how on earth can this method be applied to technical documents? Real-world docs are not linear streams; they are dynamic layouts of text, diagrams, and tables that standard chunking ignores.
 
@@ -40,7 +38,7 @@ Traditional RAG tutorials usually rely on splitting documents into fixed-size, o
 
 I quickly realized that to get decent results I needed to stick with **object-centric chunking**, an approach where the parser can identify distinct regions on a page and treat each one as a separate object, complete with the metadata I care about. That meant I needed a tool that could reliably understand page layout. And there was another catch: a chunk of the presentations were **image-based**, with **no OCR**.
 
-As expected, the usual Python suspects like PyPDF2, PyMuPDF, PDFPlumber were basically useless for this. The only library that looked somewhat promising at the time was **unstructured.io**, which was getting a lot of hype. But it still didn’t solve my core requirement: generating **textual descriptions of graphs, diagrams, and images**. For that, you had to build a separate pipeline.
+As expected, the usual Python suspects like **PyPDF2, PyMuPDF, PDFPlumber** were basically useless for this. The only library that looked somewhat promising at the time was **unstructured.io**, which was getting a lot of hype. But it still didn’t solve my core requirement: generating **textual descriptions of graphs, diagrams, and images**. For that, you had to build a separate pipeline.
 
 It was a similar story with **Google Cloud Document AI Layout Parser**. The object detection and JSON output were excellent. Honestly, it was probably the best in terms of parsing quality, but at the end of the day, it’s *just* a parser. And then there was the price: **$0.01 per page**. For 100-page documents at scale, the math gets ugly fast. With 10,000 documents:
 
@@ -74,7 +72,7 @@ Now scale it:
 * Total pages: **1,000,000**
 * Total cost: 1,000,000 × $0.00021435 = **$214.35**
 
-Feel the difference.
+Feel the difference!
 
 And pricing wasn’t the only reason a custom parser built on **Gemini 1.5 Flash** started to look like the right plan.
 
@@ -99,7 +97,7 @@ That multimodal capability unlocked a few practical wins for the pipeline:
 
 **Surprisingly good math handling.** Gemini also did a nice job normalizing math expressions that used special Unicode symbols, converting them into clean, readable formulas rather than leaving behind broken glyphs.
 
-### Is Gemini 1.5 Flash Truly an Out-of-the-Box Parser?
+## Is Gemini 1.5 Flash Truly an Out-of-the-Box Parser?
 
 It would be a developer’s idyll if everything stayed as smooth as the performance described above. Of course, real life is rarely a bed of roses, and I eventually encountered a single technical constraint that significantly shaped the parser's architecture: **the Output Token Limit.**
 
@@ -109,46 +107,47 @@ While Gemini 1.5 Flash has a massive *input* context window, its *output* is cap
 8192 output tokens ÷ 650 ≈ 12.60 pages
 ```
 
-If I were to submit a 50-page technical manual for a full JSON extraction of every chart and table, the output would be substantial. It would inevitably exceed the 8,192-token limit, resulting in either a truncated response or an oversimplified summary rather than a complete parse.
+If I were to submit a **50-page technical manual** for a full JSON extraction of every chart and table, the output would be substantial. It would inevitably exceed the **8,192-token limit**, resulting in either a truncated response or an oversimplified summary rather than a complete parse.
 
-Even if the document is closer to upper limit of this 12.60 pages, I noticed that sending the whole file caused the model to "compress" information - it would summarize too aggressively and skip the minute technical details I needed. So it literally refuses to work as a parser.
+Even if the document is closer to upper limit of this **12.60 pages**, I noticed that sending the whole file caused the model to "compress" information - it would summarize too aggressively and skip the minute technical details I needed. So it literally refuses to work as a parser.
 
 To address the token limits, I designed a **Two-Pass Approach**:
 
 **Pass A: Global Context Extraction (Whole Document)**
-I submitted the full document to Gemini in a single call to extract high-level, document-wide metadata. This step was crucial for establishing context that isolated pages lack. For example, "Page 57" does not know the document's author, creation date, or type (e.g., research paper vs. manual), information typically found only on the cover. This pass also generated a comprehensive summary of the file.
+I submitted the full document to Gemini in a single call to extract high-level, **document-wide metadata**. This step was crucial for establishing context that isolated pages lack. For example, "Page 57" does not know the document's author, creation date, or type (e.g., research paper vs. manual), information typically found only on the cover. This pass also generated a **comprehensive summary** of the file.
 
 **Pass B: Granular Page Parsing**
 For detailed data extraction, I divided the document into individual pages. By treating each page as a discrete unit, Gemini 1.5 Flash worked as an ideal parser, delivering results in line with all the powerful features described above. This granular approach captures the specific object chunks and strict JSON schema adherence that can be lost or truncated when attempting to process a massive document in a single shot.
 
 **Parallel Execution Strategy**
-To operationalize this, the "Whole Document" context request and the individual "Page-by-Page" requests were all treated as distinct API calls, each accompanied by its own prompt. These requests were executed concurrently to maximize throughput, while being carefully throttled to respect the Vertex AI rate limit of ~200 requests per minute (RPM).
+To operationalize this, the "Whole Document" context request and the individual "Page-by-Page" requests were all treated as distinct API calls, each accompanied by its own prompt. These requests were executed concurrently to maximize throughput, while being carefully throttled to respect the **Vertex AI** rate limit of **~200 requests per minute (RPM)**.
 
-### From Concept to Implementation: The Parsing + RAG Pipeline
+## From Concept to Implementation: The Parsing + RAG Pipeline
 
-Now that we’ve covered the conceptual rationale, let’s shift into the engineering: the end-to-end parsing and RAG pipeline: how files are discovered, normalized into PDFs, parsed in layers with Gemini, and ultimately indexed into BigQuery for retrieval.
+Now that we’ve covered the conceptual rationale, let’s shift into the engineering: how files are discovered, normalized into PDFs, parsed in layers with Gemini, and ultimately indexed into BigQuery for retrieval.
 
 ![Pipeline diagram]({{ '/images/3-pipeline.jpeg' | relative_url }})
 
-1. Discover files in Google Drive folders.
+1. Discover files in **Google Drive** folders.
 2. Compare against file registry table (new vs already tracked).
-3. Copy new files to GCS and convert supported formats to PDF (with concurrent Drive->GCS copying).
-4. Parse each document in three layers (with concurrent document/page ingestion to Gemini within API limits):
+3. Copy new files to **GCS** and convert supported formats to PDF (with concurrent Drive->GCS copying).
+4. Parse each document in three layers (with concurrent document/page ingestion to **Gemini** within API limits):
    - Programmatic prep layer (`metadata["properties"]`): IDs, hashes, links, layout, and session metadata
    - Document LLM layer (`gen_result`): title/author/type/keywords/summary
    - Page layer (`all_chunks`): object-centric chunk extraction with page-level and session fields
 5. Save intermediate JSON artifacts to GCS (document-level, page-level, merged).
-6. Merge per-document outputs into session NDJSON.
-7. Batch load NDJSON into BigQuery chunks table.
+6. Merge per-document outputs into session **NDJSON**.
+7. Batch load **NDJSON** into **BigQuery** chunks table.
 8. Update file registry statuses (`copied_to_gcs`, `parsed`, `added_to_bq`, timestamps).
-9. Add new chunks to BigQuery vector store via LangChain `BigQueryVectorStore` (filtering out very short chunks, e.g. <300 chars).
+9. Add new chunks to **BigQuery** vector store via **LangChain** `BigQueryVectorStore` (filtering out very short chunks, e.g. <300 chars).
 
-### Implementation Walkthrough: Code-Level Highlights
+## Implementation Walkthrough: Code-Level Highlights
 
-## 1) Control Plane First: `FILE_LIST`
+### 1) Control Plane First: `FILE_LIST`
 
-The pipeline starts with a state table, so each file can be tracked across discovery, copy, parsing, and corpus update.
-Key libraries: `google-cloud-bigquery`
+The pipeline starts with a state table, so each file can be tracked across discovery, copy, parsing, and corpus update.  
+
+*Key libraries: `google-cloud-bigquery`*
 
 | Field | Type | Used for |
 |---|---|---|
@@ -167,7 +166,7 @@ Key libraries: `google-cloud-bigquery`
 | `added_to_bq` | `BOOL` | Corpus insertion completion flag |
 | `timestamp_added` | `DATETIME` | Corpus insertion timestamp |
 
-Snippet shows the incremental principle: compare discovered files to known `file_id` values.
+The following snippet shows the incremental principle: **compare discovered files** to known `file_id` values.
 
 ```python
 # table_id, bq_client, master_files are prepared above
@@ -177,13 +176,13 @@ rows = list(bq_client.query(query))
 existing_file_ids = {row["file_id"] for row in rows}
 new_files = [f for f in master_files if f["file_id"] not in existing_file_ids]
 ```
-Source files: [01_setup_bq_file_list.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/01_setup_bq_file_list.ipynb) (cell 2 lines 20-35; cell 4 lines 21-24), [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 10 lines 8-21)
-Note: GitHub does not provide stable cell-level anchors for rendered `.ipynb` files, so notebook links point to the file and cell/line ranges are shown as text.
+*Source files: [01_setup_bq_file_list.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/01_setup_bq_file_list.ipynb) (cell 2 lines 20-35; cell 4 lines 21-24), [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 10 lines 8-21)*
 
-## 2) Drive Access and Resilient Discovery
+### 2) Drive Access and Resilient Discovery
 
-Drive access is built from a service account secret; listing is shared-drive aware.
-Key libraries: `google-cloud-secret-manager`, `google.oauth2.service_account`, `googleapiclient`
+Drive access is built from a service account secret; listing is shared-drive aware.  
+
+*Key libraries: `google-cloud-secret-manager`, `google.oauth2.service_account`, `googleapiclient`*
 
 ```python
 # get_secret(...) is defined earlier
@@ -194,9 +193,9 @@ credentials = service_account.Credentials.from_service_account_info(
 )
 drive_service = build("drive", "v3", credentials=credentials)
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 8 lines 1-33)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 8 lines 1-33)*
 
-Discovery calls use exponential backoff for transient API failures.
+Discovery calls use **exponential backoff** for transient API failures.
 
 ```python
 def robust_files_list(service, query, max_retries=5, initial_wait=1):
@@ -214,14 +213,15 @@ def robust_files_list(service, query, max_retries=5, initial_wait=1):
             else:
                 raise
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 8 lines 34-63)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 8 lines 34-63)*
 
-## 3) Copy/Convert Stage: Normalize to PDF
+### 3) Copy/Convert Stage: Normalize to PDF
 
 All supported formats are normalized to PDF before parsing, so downstream logic has one input type.
 Google Workspace MIME types (`application/vnd.google-apps.*`) are exported directly to PDF.
-Office MIME types are downloaded, temporarily converted, and then exported to PDF.
-Key libraries: `googleapiclient.http (MediaIoBaseDownload/MediaIoBaseUpload)`, `googleapiclient.discovery`
+Office MIME types are downloaded, temporarily converted, and then exported to PDF.  
+
+*Key libraries: `googleapiclient.http (MediaIoBaseDownload/MediaIoBaseUpload)`, `googleapiclient.discovery`*
 
 ```python
 # file, file_id, drive_service, media_body, file_name_no_ext are prepared above
@@ -240,9 +240,9 @@ elif file["file_mime_type"] in OFFICE_TYPES:
 else:
     request = drive_service.files().get_media(fileId=file_id, supportsAllDrives=True)
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 12 lines 90-177)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 12 lines 90-177)*
 
-Parallel workers use thread-local Drive clients to avoid shared mutable client state.
+**Parallel workers use thread-local Drive clients** to avoid shared mutable client state.
 
 ```python
 # credentials is prepared above
@@ -253,12 +253,13 @@ def get_drive_service():
         thread_local.drive_service = build("drive", "v3", credentials=credentials)
     return thread_local.drive_service
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 12 lines 53-60)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 12 lines 53-60)*
 
-## 4) Parallelism Model: Copy + Page-Aware Batches
+### 4) Parallelism Model: Copy + Page-Aware Batches
 
-Copying happens concurrently at file level.
-Key libraries: `concurrent.futures.ThreadPoolExecutor`
+Copying happens concurrently at file level.  
+
+*Key libraries: `concurrent.futures.ThreadPoolExecutor`*
 
 ```python
 # num_threads, process_file, files_to_process are prepared above
@@ -269,9 +270,9 @@ with ThreadPoolExecutor(max_workers=num_threads) as executor:
         if future.result():
             total_copied += 1
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 12 lines 252-260)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 12 lines 252-260)*
 
-Parsing concurrency is shaped by page counts under an explicit `API_LIMIT`.
+Parsing **concurrency is shaped by page counts** under an explicit `API_LIMIT`.
 
 ```python
 # file_page_counts is prepared above
@@ -288,9 +289,9 @@ for file_number, num_pages in file_page_counts:
 if current_batch:
     batches.append(current_batch)
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 35 lines 61-187)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 35 lines 61-187)*
 
-Inside each file, the whole-document task and all page tasks are also executed in parallel.
+Inside each file, the **whole-document task** and all **page tasks** are also executed in **parallel**.
 
 ```python
 # gsutil_uri and blobs are prepared above
@@ -308,9 +309,9 @@ with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
         else:
             all_chunks.extend(future.result() or [])
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 33 lines 233-256)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 33 lines 233-256)*
 
-## 5) Parsing Logic by Derivation Source
+### 5) Parsing Logic by Derivation Source
 
 #### 1) Programmatic foundation (non-LLM, first)
 
@@ -346,7 +347,7 @@ Both LLM passes (whole-document and per-page) use schema-constrained JSON output
 
 For exact field-level mapping (`a_` to `ar_`) and ownership (programmatic vs LLM), see the field map table below.
 
-### Field Map (`a_` to `ar_`)
+#### Field Map (`a_` to `ar_`)
 
 The table below maps all schema fields to:
 
@@ -405,10 +406,11 @@ The table below maps all schema fields to:
 
 </div>
 
-## 6) Schema-Constrained Parsing
+### 6) Schema-Constrained Parsing
 
-The pipeline uses one schema principle across passes: force structured JSON outputs.
-Key libraries: `vertexai.generative_models (GenerativeModel, GenerationConfig)`
+The pipeline uses one schema principle across passes: **force structured JSON outputs**.  
+
+*Key libraries: `vertexai.generative_models (GenerativeModel, GenerationConfig)`*
 
 ```python
 response_schema_chunks = {
@@ -424,10 +426,10 @@ response_schema_chunks = {
     },
 }
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 19 lines 1-36)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 19 lines 1-36)*
 
-Generation config binds the response format to that schema.
-This is Vertex AI SDK (`vertexai.generative_models.GenerationConfig`) controlling JSON-structured generation.
+Generation config binds the response format to the schema.
+This is **Vertex AI SDK** (`vertexai.generative_models.GenerationConfig`) that controls JSON-structured generation.
 
 ```python
 # model_chunks and contents are prepared above
@@ -440,15 +442,11 @@ config_chunks = GenerationConfig(
 )
 response = model_chunks.generate_content(contents, generation_config=config_chunks)
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 22 lines 1-11)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 22 lines 1-11)*
 
-## 7) Direct URI Multimodal Calls + Telemetry
+### 7) Direct URI Multimodal Calls + Telemetry
 
-PDFs are ingested via GCS URIs and sent directly to Gemini 1.5 Flash along with the parsing instruction prompt.
-
-The following prompt handles full-document parsing; by intentionally mirroring our target response schema, we eliminate potential data conflicts.
-
-### Define Prompt for Extracting General Summary
+PDFs are ingested via **GCS URIs** and sent **directly to Gemini 1.5 Flash** along with the parsing instruction prompt. The following prompt handles the **whole-document parsing**; by intentionally mirroring our target response schema, we eliminate potential data conflicts.
 
 <div style="max-height: 420px; overflow: auto; margin: 0.75rem 0 1rem 0;">
 {% highlight python %}
@@ -474,11 +472,9 @@ prompt_gen = """
 {% endhighlight %}
 </div>
 
-The per-page prompt follows the same principle: it mirrors the response schema and spells out, in detail, exactly how parsing should be performed. Yes, it’s verbose, and the token math can look a bit odd at first glance: 1 PDF page contributes only ~258 input tokens, yet we attach a ~3,156-token prompt to produce roughly ~650 tokens of structured output.
+**The per-page prompt** follows the same principle: it mirrors the response schema and spells out, in detail, exactly how parsing should be performed. Yes, it’s **verbose**, and the token math can look a bit odd at first glance: 1 PDF page contributes only **~258 input tokens**, yet we attach a **~3,156-token prompt** to produce roughly **~650 tokens** of structured output.
 
 Still, with Gemini 1.5 Flash’s **1M-token** context window, a few thousand prompt tokens are negligible. Could this be optimized? Absolutely. But for this project, it proved both reliable and cost-effective.
-
-### Define Prompt for Extracting Chunks
 
 <div style="max-height: 420px; overflow: auto; margin: 0.75rem 0 1rem 0;">
 {% highlight python %}
@@ -655,9 +651,9 @@ Convert bullet points and numbered lists into continuous prose. Adjust the forma
 {% endhighlight %}
 </div>
 
-Here’s a snippet showing how the PDF is attached from GCS and passed to Gemini alongside the parsing prompt in a single generate_content call.
+Here’s a snippet showing how the **PDF is attached from GCS and passed to Gemini** alongside the parsing prompt in a single `generate_content` call.  
 
-Key libraries: `vertexai.generative_models.Part`, `vertexai.generative_models.GenerativeModel`
+*Key libraries: `vertexai.generative_models.Part`, `vertexai.generative_models.GenerativeModel`*
 
 ```python
 # gs_uri, prompt_gen, config_gen are prepared above
@@ -666,10 +662,9 @@ pdf_file_part = Part.from_uri(uri=gs_uri, mime_type="application/pdf")
 contents = [pdf_file_part, prompt_gen]
 response = model.generate_content(contents, generation_config=config_gen)
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 25 lines 16-25)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 25 lines 16-25)*
 
-Telemetry fields are captured from Gemini response metadata for monitoring and reproducibility.
-Document-level and page-level passes use the same pattern with different field prefixes.
+**Telemetry fields** are captured from Gemini response metadata for **monitoring** and reproducibility. Document-level and page-level passes use the same pattern with different field prefixes.
 
 ```python
 # response is prepared above (document-level flow)
@@ -684,14 +679,15 @@ document_fields = {
 # In page-level flow, analogous fields are captured under chunks keys
 # (for example: aj/al/an/ap/ar)
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 25 lines 42-51; cell 27 lines 52-57)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 25 lines 42-51; cell 27 lines 52-57)*
 
-## 8) Merge, Determinism, NDJSON, and Load
+### 8) Merge, Determinism, NDJSON, and Load
 
-The merge combines three layers into one final row schema.
-Key libraries: `collections.OrderedDict`, `json`, `google-cloud-bigquery`
+The merge combines **three layers into one** final row schema.  
 
-Page layer (`all_chunks`) is built in `process_page` and already includes page-level LLM fields plus programmatic page/session fields.
+*Key libraries: `collections.OrderedDict`, `json`, `google-cloud-bigquery`*
+
+**Page layer** (`all_chunks`) is built in `process_page` and already includes page-level LLM fields plus programmatic page/session fields.
 
 ```python
 chunk_result = {
@@ -708,9 +704,9 @@ chunk_result.update({
 })
 all_chunks.append(chunk_result)
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 27 lines 30-63)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 27 lines 30-63)*
 
-Programmatic prep layer is built in `process_file` and stored under `metadata["properties"]` (`_prep.json`).
+**Programmatic prep layer** is built in `process_file` and stored under `metadata["properties"]` (`_prep.json`).
 
 ```python
 # number_prefix, sha256_hash, filename_without_ext, gsutil_uri, num_pages are prepared above
@@ -725,9 +721,9 @@ metadata = {
     },
 }
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 33 lines 169-183)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 33 lines 169-183)*
 
-Document LLM layer is built in `process_pdf_gen` (`_gen.json`).
+**Document LLM layer** is built in `process_pdf_gen` (`_gen.json`).
 
 ```python
 gen_result = {
@@ -742,9 +738,9 @@ gen_result.update({
     "aq_document_model_version": response._raw_response.model_version,
 })
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 25 lines 31-51)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 25 lines 31-51)*
 
-Layer provenance:
+**Layer provenance:**
 
 | Layer | Built in | Typical fields | Artifact |
 |---|---|---|---|
@@ -766,9 +762,9 @@ for chunk in all_chunks:
 sorted_chunks = sorted(sorted_chunks, key=lambda x: int(x.get("b_page_number", 0)))
 merged_json = json.dumps(sorted_chunks, indent=2)
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 33 lines 297-323)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 33 lines 297-323)*
 
-Merged JSON is converted to NDJSON and appended to BigQuery `CHUNKS`.
+Merged JSON is converted to **NDJSON** and appended to **BigQuery** `CHUNKS`.
 
 ```python
 # json, bigquery, client, bucket_name, gcs_uri, table_id are prepared above
@@ -782,14 +778,13 @@ job_config = bigquery.LoadJobConfig(
 )
 client.load_table_from_uri(f"gs://{bucket_name}/{gcs_uri}", table_id, job_config=job_config).result()
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 29 lines 1-6; cell 31 lines 9-20)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 29 lines 1-6; cell 31 lines 9-20)*
 
-## 9) Incremental Corpus Update (`CORPUS`)
+### 9) Incremental Corpus Update (`CORPUS`)
 
-We initialize LangChain’s `BigQueryVectorStore`, which is a great “serverless default” for semantic retrieval: simple ops, easy scaling, and good performance at moderate scale.
+We initialize **LangChain’s** `BigQueryVectorStore`, which is a great “serverless default” for semantic retrieval: simple ops, easy scaling, and good performance at moderate scale. The vector store is initialized with explicit embedding and distance settings.  
 
-The vector store is initialized with explicit embedding and distance settings.
-Key libraries: `langchain-google-vertexai`, `langchain-google-community`, `google-cloud-bigquery`
+*Key libraries: `langchain-google-vertexai`, `langchain-google-community`, `google-cloud-bigquery`*
 
 ```python
 # PROJECT_ID, LOCATION, DATASET, TABLE are prepared above
@@ -806,11 +801,11 @@ bq_store = BigQueryVectorStore(
     distance_type="EUCLIDEAN",
 )
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 43 lines 1-3; cell 44 lines 1-8)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 43 lines 1-3; cell 44 lines 1-8)*
 
-If you later need consistently low, user-facing latency, LangChain lets you switch to Vertex AI Feature Store Online Store via `VertexFSVectorStore` with minimal code changes. In practice, BigQuery vector search is commonly in the hundreds of milliseconds to seconds range (≈ 0.3–3.0 s), while Feature Store is built for millisecond online serving (Google reports ~2 ms at the 99th percentile in internal benchmarks). The trade-off is cost: Feature Store provisions always-on online serving capacity, so it’s typically more expensiv, but it’s a clean upgrade path when traffic or dataset size grows.
+If you later need consistently low, user-facing latency, **LangChain** lets you switch to **Vertex AI Feature Store Online Store** via `VertexFSVectorStore` with minimal code changes. In practice, **BigQuery vector search** is commonly in the hundreds of milliseconds to **seconds** range (≈ 0.3–3.0 s), while **Feature Store** is built for **millisecond** online serving (Google reports **~2 ms at the 99th percentile** in internal benchmarks). The trade-off is **cost**: Feature Store provisions always-on online serving capacity, so it’s typically more expensive, but it’s a clean upgrade path when traffic or dataset size grows.
 
-Here’s an example showing how to switch the vector store backend to Vertex AI Feature Store (online serving) with minimal changes:
+Here’s an example showing how to switch the vector store backend to **Vertex AI Feature Store** (online serving) with minimal changes:
 
 ```python
 
@@ -832,9 +827,9 @@ fs_store = VertexFSVectorStore(
 )
 ```
 
-In my measurements, BigQuery was already fast enough for our document volume, so I  kept the simpler and cheaper BigQuery setup.
+In my measurements, BigQuery was already fast enough for our document volume, so I  **kept the simpler and cheaper BigQuery setup**.
 
-Incrementality is enforced via **key-based exclusion** and **chunk-quality thresholding** for *text* chunks. During manual inspection, I found that most **short text chunks** (≈ under 300 characters) were just noise—captions without context, table-of-contents fragments, headers/footers, or other boilerplate. That’s why I introduced a minimum-length filter specifically for **text-type chunks**, while still keeping short **non-text chunks** (tables, diagrams, charts, images) since they can be meaningful even when brief.
+Incrementality is enforced via key-based exclusion and chunk-quality thresholding for *text* chunks. During manual inspection, I found that most **short text chunks** (≈ under 300 characters) were just noise—captions without context, table-of-contents fragments, headers/footers, or other boilerplate. That’s why I introduced a minimum-length filter specifically for **text-type chunks**, while still keeping short **non-text chunks** (tables, diagrams, charts, images) since they can be meaningful even when brief.
 
 ```sql
 SELECT a_chunk_id, e_chunk_type, g_chunk_contents
@@ -847,10 +842,9 @@ AND (
   OR (e_chunk_type IN ('table', 'chart', 'diagram', 'image'))
 )
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 47 lines 31-42)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 47 lines 31-42)*
 
-Rows are loaded through `BigQueryLoader`, cleaned, then embedded and inserted.
-`BigQueryLoader` and `BigQueryVectorStore` here are LangChain integrations from `langchain_google_community`.
+Rows are loaded, cleaned, embedded, and inserted using the `BigQueryLoader` and `BigQueryVectorStore` classes from the `langchain_google_community` package.
 
 ```python
 # chosen_query is prepared above
@@ -861,7 +855,7 @@ for doc in docs:
 if docs:
     doc_ids = bq_store.add_documents(docs)
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 51 lines 1-31; cell 53 lines 1-7; cell 55 lines 1-5)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 51 lines 1-31; cell 53 lines 1-7; cell 55 lines 1-5)*
 
 `FILE_LIST` status is synchronized via temporary table and SQL `MERGE`.
 
@@ -874,28 +868,28 @@ WHEN MATCHED THEN
     T.parsed = S.parsed,
     T.timestamp_parsed = S.timestamp_parsed
 ```
-Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 35 lines 220-253)
+*Source files: [03_parsing_tool.ipynb](https://github.com/nikolailen/ai_knowledge_base/blob/main/03_parsing_tool.ipynb) (cell 35 lines 220-253)*
 
-## 10) App Runtime and Deployment
+### 10) App Runtime and Deployment
 
 Runtime logic routes by mode, retrieves chunks, optionally attaches source PDFs, then invokes the model.
 
-Direct PDF ingestion in `pdf` / `pdf+text` is useful when batch parsing missed some details: newer models can re-read the original pages at query time. In most cases, batch parsing captures the bulk of the document, and the system still *knows* the document is relevant thanks to embeddings and vector search. But if the offline pipeline skipped a chunk, mis-extracted a table, or missed a key detail, re-ingesting the source PDF lets the live model re-examine the exact pages and recover what was lost. This ensures that even if a database was parsed months ago using Gemini 1.5 Flash, the live system can still leverage a state-of-the-art model like Gemini 3 to validate, refine, and enrich the answer directly from the original document, so the system’s understanding improves alongside model advancements without reprocessing the entire corpus.
+**Direct PDF ingestion** in `pdf` / `pdf+text` is useful when batch parsing missed some details: newer models can **re-read** the original pages at query time. In most cases, batch parsing captures the bulk of the document, and the system still *knows* the document is relevant thanks to embeddings and vector search. But **if the offline pipeline skipped a chunk**, mis-extracted a table, or missed a key detail, re-ingesting the source PDF lets the live model re-examine the exact pages and recover what was lost. This ensures that even if a database was parsed months ago using **Gemini 1.5 Flash**, the live system can still leverage a state-of-the-art model like **Gemini 3** to validate, refine, and enrich the answer **directly from the original document**, so the system’s understanding improves alongside model advancements without reprocessing the entire corpus.
 
-Application Modes:
+**Application Modes:**
 
 - `no_context`: pure LLM answer.
 - `text`: retrieved chunks from BigQuery vector store using LangChain `BigQueryVectorStore.similarity_search_with_score`.
 - `pdf`: retrieved relevant PDFs sent as multimodal inputs directly to Gemini.
 - `pdf+text`: combines LangChain text retrieval with direct PDF multimodal inputs.
 
-The app also returns:
+**The app also returns:**
 
 - retrieved chunk content with similarity scores
 - links to specific pages
 - links to full documents in GCS
 
-Key libraries (runtime): `langchain_google_community.BigQueryVectorStore`, `langchain_google_vertexai.ChatVertexAI`, `langchain_core.messages`
+*Key libraries (runtime): `langchain_google_community.BigQueryVectorStore`, `langchain_google_vertexai.ChatVertexAI`, `langchain_core.messages`*
 
 ```python
 # context_mode, query, system_msg, bq_store, llm are prepared above
@@ -913,10 +907,11 @@ if context_mode != "no_context":
             messages.append(HumanMessage(content=f"Context Chunk:\n{doc.page_content}"))
 response = llm.invoke(messages)
 ```
-Source files: [05_app_gradio.py:72](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L72), [05_app_gradio.py:82](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L82), [05_app_gradio.py:96](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L96), [05_app_gradio.py:135](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L135), [05_app_gradio.py:189](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L189)
+*Source files: [05_app_gradio.py:72](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L72), [05_app_gradio.py:82](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L82), [05_app_gradio.py:96](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L96), [05_app_gradio.py:135](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L135), [05_app_gradio.py:189](https://github.com/nikolailen/ai_knowledge_base/blob/main/05_app_gradio.py#L189)*
 
-Deployment keeps a minimal runtime image for Cloud Run.
-Key libraries (deployment): Docker, Cloud Run
+Deployment keeps a minimal runtime image for **Cloud Run**.  
+
+*Key libraries (deployment): **Docker**, Cloud Run*
 
 ```dockerfile
 FROM python:3.10-slim
@@ -928,13 +923,11 @@ RUN pip install --no-cache-dir \
     "langchain-google-community[featurestore,bigquery]" gradio
 CMD ["python", "05_app_gradio.py"]
 ```
-Source files: [06_Dockerfile:1](https://github.com/nikolailen/ai_knowledge_base/blob/main/06_Dockerfile#L1)
+*Source files: [06_Dockerfile:1](https://github.com/nikolailen/ai_knowledge_base/blob/main/06_Dockerfile#L1)*
 
-### Parsing outcome and chunk size distribution
+## Parsing outcome and chunk size distribution
 
-Thanks to parallelism, all **~10,000 documents** were processed at once in about **6–7 hours**. **~30 GB** of unstructured PDFs were transformed into a **~500 MB** structured BigQuery table with all necessary metadata (**~60× compression**), so the table storage falls under GCP’s Free Tier and costs **$0**.
-
-Below is a chart showing the distribution of chunk sizes by number of characters.
+Thanks to parallelism, all **~10,000 documents** were processed at once in about **6–7 hours**. **~30 GB** of unstructured PDFs were transformed into a **~500 MB** structured BigQuery table with all necessary metadata (**~60× compression**), so the table storage falls under **GCP’s Free Tier** and costs **$0**. Below is a chart showing the distribution of chunk sizes by number of characters.
 
 ![Chunk size distribution]({{ '/images/4-chunks.png' | relative_url }})
 
@@ -942,12 +935,12 @@ Below is a chart showing the distribution of chunk sizes by number of characters
 
 Estimated shares by length ranges of `g_chunk_contents`:
 
-* **0–500 characters: ~52.5%**
-* **500–1000: ~35.6%**
-* **1000–1500: ~8.1%**
-* **1500–2000: ~2.6%**
-* **2000–3000: ~1.2%**
-* **> 3000:** on the chart these are only trace values (very few, fractions of a percent)
+* `0 - 500 characters`: **~52.5%**
+* `500 - 1000`: **~35.6%**
+* `1000 - 1500`: **~8.1%**
+* `1500 - 2000`: **~2.6%**
+* `2000 - 3000`: **~1.2%**
+* `> 3000`: on the chart these are only trace values (very few, fractions of a percent)
 
 **From this it follows:**
 
@@ -955,11 +948,11 @@ Estimated shares by length ranges of `g_chunk_contents`:
 * about **~96%** are shorter than **1500**,
 * almost all are shorter than **2000**.
 
-### Conclusion
+## Conclusion
 
-With Gemini 1.5 Flash plus serverless GCP plumbing, I turned 10,000 messy technical documents into a **multimodal, citation-backed AI knowledge base** for about **~€50** and kept **maintenance close to zero**. The stack will evolve, but the principles won’t: **object-centric parsing**, **schema-controlled output**, **traceable sources**, and **scalable pipelines** allowing the system to scale with adoption and corpus growth without collapsing under its own complexity. For anyone embarking on a similar journey, I hope my experience will offer some inspiration.
+With **Gemini 1.5 Flash** plus serverless **GCP** plumbing, I turned **~10,000** messy technical documents into a **multimodal**, citation-backed **AI knowledge base** for about **~€50** and kept maintenance close to **zero**. The stack will evolve, but the principles won’t: **object-centric parsing**, **schema-controlled output**, **traceable sources**, and **scalable pipelines** that allow the system to handle increased adoption and corpus growth without collapsing under its own complexity. For anyone embarking on a similar journey, I hope my experience will offer some inspiration.
 
-You can explore all the code at [my GitHub repository](https://github.com/nikolailen/ai_knowledge_base).
+Check the full code at [my GitHub repository](https://github.com/nikolailen/ai_knowledge_base).
 
-Feel free to connect with me on [LinkedIn](https://www.linkedin.com/in/niklen/)!
+Feel free to connect on [LinkedIn](https://www.linkedin.com/in/niklen/)!
 
