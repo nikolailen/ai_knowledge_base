@@ -1,6 +1,6 @@
 ﻿# AI Knowledge Base on GCP: Multimodal Parsing with Gemini and RAG via BigQuery + LangChain
 
-- 🌐 [Project page](https://nikolailen.github.io/gcp-multimodal-rag-kb/)
+- 🌐 [Project page](https://nikolailen.github.io/gcp-multimodal-ai-rag/)
 - 👤 Project contact: [Nikolai Len](https://www.linkedin.com/in/niklen/)
 
 ## Project Context
